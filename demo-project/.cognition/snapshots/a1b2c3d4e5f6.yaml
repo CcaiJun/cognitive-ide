@@ -1,0 +1,58 @@
+snapshot_id: "snap-001"
+commit_hash: "a1b2c3d4e5f6"
+commit_message: "feat: 初始化电商订单系统认知层"
+generated_at: "2025-06-01T10:45:00Z"
+
+graph_summary:
+  total_nodes: 7
+  total_edges: 8
+  new_nodes: 7
+  modified_nodes: 0
+  removed_nodes: 0
+
+changes:
+  - node_id: "order-service"
+    change_type: "added"
+    interfaces_added: ["createOrder", "cancelOrder", "getOrderStatus", "confirmPayment"]
+    interfaces_removed: []
+    dependencies_added: ["payment-service", "inventory-service", "notification-service", "user-service", "shared-types"]
+    risks_added: ["RISK-001", "RISK-002"]
+  - node_id: "payment-service"
+    change_type: "added"
+    interfaces_added: ["createPayment", "handlePaymentCallback", "refund"]
+    interfaces_removed: []
+    dependencies_added: ["order-service", "shared-types", "notification-service"]
+    risks_added: ["RISK-003"]
+  - node_id: "inventory-service"
+    change_type: "added"
+    interfaces_added: ["checkStock", "lockStock", "releaseStock"]
+    interfaces_removed: []
+    dependencies_added: ["shared-types"]
+    risks_added: []
+  - node_id: "notification-service"
+    change_type: "added"
+    interfaces_added: ["sendOrderCreated", "sendPaymentNotification"]
+    interfaces_removed: []
+    dependencies_added: []
+    risks_added: []
+  - node_id: "user-service"
+    change_type: "added"
+    interfaces_added: ["getUser"]
+    interfaces_removed: []
+    dependencies_added: ["shared-types"]
+    risks_added: []
+  - node_id: "shared-types"
+    change_type: "added"
+    interfaces_added: []
+    interfaces_removed: []
+    dependencies_added: []
+    risks_added: []
+  - node_id: "api-order-controller"
+    change_type: "added"
+    interfaces_added: []
+    interfaces_removed: []
+    dependencies_added: ["order-service"]
+    risks_added: []
+
+human_review_status: "approved"
+reviewed_by: "developer-zh"

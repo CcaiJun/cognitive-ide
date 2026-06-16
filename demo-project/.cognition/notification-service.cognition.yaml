@@ -1,0 +1,90 @@
+node_id: "notification-service"
+file_path: "src/notification/notification.service.ts"
+language: "typescript"
+lines: 120
+last_analyzed_at: "2025-06-01T10:30:00Z"
+analyzed_by: "analyzer-v1"
+human_verified: true
+verified_by: "senior-dev"
+verified_at: "2025-06-02T14:00:00Z"
+
+responsibility:
+  summary: "通知领域服务——处理订单、支付、库存等事件的通知分发"
+  detail: |
+    NotificationService 是系统的通知中心，负责：
+    1. 接收各领域服务的事件通知请求
+    2. 根据用户偏好选择通知渠道（邮件/短信/推送）
+    3. 模板渲染与个性化内容生成
+    4. 通知发送状态追踪与重试
+
+interfaces:
+  - name: "sendNotification"
+    signature: "async sendNotification(event: NotificationEvent): Promise<SendResult>"
+    access: "public"
+    side_effects: ["发送通知", "写入发送记录"]
+    callers:
+      - node_id: "order-service"
+        file: "src/order/order.service.ts"
+      - node_id: "payment-service"
+        file: "src/payment/payment.service.ts"
+      - node_id: "inventory-service"
+        file: "src/inventory/inventory.service.ts"
+    preconditions: ["事件数据有效", "用户通知偏好已配置"]
+    complexity: "medium"
+
+  - name: "getNotificationStatus"
+    signature: "async getNotificationStatus(notificationId: string): Promise<NotificationStatus>"
+    access: "public"
+    side_effects: []
+    callers: []
+    preconditions: ["通知ID存在"]
+    complexity: "low"
+
+key_types:
+  - name: "NotificationEvent"
+    definition_in: "src/shared/types.ts"
+    fields: ["type", "userId", "payload", "priority"]
+  - name: "SendResult"
+    definition_in: "src/shared/types.ts"
+    fields: ["success", "channel", "sentAt"]
+
+dependencies:
+  - node_id: "shared-types"
+    interface_file: "src/shared/types.ts"
+    used_for: "共享类型定义(NotificationEvent, SendResult等)"
+    required: true
+
+data_flow:
+  description: "通知发送主流程"
+  steps:
+    - action: "接收通知事件"
+      input: "NotificationEvent"
+      calls: "sendNotification"
+    - action: "查询用户偏好"
+      reads_from: "user_preferences数据库表"
+    - action: "渲染通知模板"
+      output: "个性化通知内容"
+    - action: "发送通知"
+      writes_to: "notification_log数据库表"
+
+decisions:
+  - id: "DEC-NOTIF-001"
+    title: "异步队列处理通知发送"
+    context: "通知发送可能耗时且非关键路径"
+    decision: "使用消息队列异步处理，不阻塞主业务流程"
+    consequences: "通知延迟增加但系统吞吐量提升"
+    linked_issue: null
+
+risks: []
+
+testing:
+  coverage_percent: 75.0
+  test_files:
+    - "src/notification/notification.service.spec.ts"
+  uncovered_cases:
+    - "通知发送失败后的完整重试路径"
+
+performance:
+  average_latency_ms: 50.0
+  p99_latency_ms: 200
+  bottleneck: "外部邮件/短信服务商响应时间"

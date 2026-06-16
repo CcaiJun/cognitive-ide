@@ -1,0 +1,43 @@
+cognition_version: "1.0"
+project_id: cognitive-ide
+name: "Cognitive IDE"
+description: "以项目认知图谱为核心的协作开发环境"
+language: typescript
+framework: react
+
+generation:
+  auto_analyze: true
+  ai_model: "gpt-4o"
+  human_review_required:
+    - interface_change
+    - new_dependency
+    - "risk_level:high"
+
+modules:
+  - path: "apps/web/src/components/GalaxyGraph"
+    name: "galaxy-graph"
+    type: "domain"
+  - path: "apps/web/src/components/CognitionCard"
+    name: "cognition-card"
+    type: "domain"
+  - path: "apps/web/src/components/AIPanel"
+    name: "ai-panel"
+    type: "domain"
+  - path: "apps/web/src/components/CodeEditor"
+    name: "code-editor"
+    type: "domain"
+  - path: "apps/web/src/stores"
+    name: "stores"
+    type: "infrastructure"
+  - path: "apps/web/src/lib"
+    name: "lib"
+    type: "infrastructure"
+  - path: "services/api-server/routers"
+    name: "api-routers"
+    type: "infrastructure"
+  - path: "services/api-server/services"
+    name: "api-services"
+    type: "infrastructure"
+  - path: "packages/shared-types"
+    name: "shared-types"
+    type: "shared"

@@ -1,0 +1,121 @@
+node_id: "inventory-service"
+file_path: "src/inventory/inventory.service.ts"
+language: "typescript"
+lines: 190
+last_analyzed_at: "2025-06-01T10:30:00Z"
+analyzed_by: "analyzer-v1"
+human_verified: true
+verified_by: "senior-dev"
+verified_at: "2025-06-02T14:00:00Z"
+
+responsibility:
+  summary: "库存领域服务——管理商品库存查询、锁定、释放与补货"
+  detail: |
+    InventoryService 负责商品库存的全生命周期管理：
+    1. 查询商品库存数量
+    2. 锁定库存（下单时预留）
+    3. 释放库存（取消订单时归还）
+    4. 确认库存扣减（支付成功后）
+    5. 低库存预警与自动补货触发
+
+interfaces:
+  - name: "checkStock"
+    signature: "async checkStock(productId: string, quantity: number): Promise<StockResult>"
+    access: "public"
+    side_effects: []
+    callers:
+      - node_id: "order-service"
+        file: "src/order/order.service.ts"
+    preconditions: ["商品ID有效"]
+    complexity: "low"
+
+  - name: "lockStock"
+    signature: "async lockStock(productId: string, quantity: string, orderId: string): Promise<LockResult>"
+    access: "public"
+    side_effects: ["锁定库存记录", "写入锁定日志"]
+    callers:
+      - node_id: "order-service"
+        file: "src/order/order.service.ts"
+    preconditions: ["库存充足", "订单ID有效"]
+    complexity: "medium"
+
+  - name: "releaseStock"
+    signature: "async releaseStock(orderId: string): Promise<void>"
+    access: "public"
+    side_effects: ["释放锁定库存"]
+    callers:
+      - node_id: "order-service"
+        file: "src/order/order.service.ts"
+    preconditions: ["锁定记录存在"]
+    complexity: "medium"
+
+  - name: "confirmDeduction"
+    signature: "async confirmDeduction(orderId: string): Promise<void>"
+    access: "public"
+    side_effects: ["扣减实际库存", "更新库存快照"]
+    callers:
+      - node_id: "payment-service"
+        file: "src/payment/payment.service.ts"
+    preconditions: ["支付已完成"]
+    complexity: "low"
+
+key_types:
+  - name: "StockResult"
+    definition_in: "src/shared/types.ts"
+    fields: ["available", "quantity", "reserved"]
+  - name: "LockResult"
+    definition_in: "src/shared/types.ts"
+    fields: ["success", "lockId", "expiresAt"]
+
+dependencies:
+  - node_id: "shared-types"
+    interface_file: "src/shared/types.ts"
+    used_for: "共享类型定义(StockResult, LockResult等)"
+    required: true
+  - node_id: "notification-service"
+    interface_file: "src/notification/notification.service.ts"
+    used_for: "低库存预警通知"
+    required: false
+
+data_flow:
+  description: "库存锁定主流程"
+  steps:
+    - action: "接收锁定请求"
+      input: "productId + quantity + orderId"
+      calls: "lockStock"
+    - action: "检查库存"
+      calls: "checkStock"
+      output: "库存确认结果"
+    - action: "创建锁定记录"
+      writes_to: "inventory_locks数据库表"
+    - action: "扣减可用库存"
+      writes_to: "inventory数据库表"
+
+decisions:
+  - id: "DEC-INV-001"
+    title: "使用Redis分布式锁防止库存超卖"
+    context: "高并发场景下多个用户同时锁定同一商品库存"
+    decision: "通过Redis分布式锁+数据库乐观锁双重保护"
+    consequences: "性能略有下降但数据一致性有保障"
+    linked_issue: null
+
+risks:
+  - id: "RISK-INV-001"
+    level: "medium"
+    title: "库存锁定超时未释放"
+    description: "订单支付超时后库存锁定记录可能未被释放"
+    mitigation: "设置锁定过期时间，定时任务扫描并释放过期锁定"
+    status: "open"
+
+testing:
+  coverage_percent: 82.0
+  test_files:
+    - "src/inventory/inventory.service.spec.ts"
+    - "src/inventory/inventory.e2e-spec.ts"
+  uncovered_cases:
+    - "并发锁定冲突的完整回滚路径"
+
+performance:
+  average_latency_ms: 25.0
+  p99_latency_ms: 150
+  bottleneck: "Redis分布式锁竞争"

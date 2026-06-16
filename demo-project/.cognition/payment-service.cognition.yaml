@@ -1,0 +1,115 @@
+node_id: payment-service
+file_path: src/payment/payment.service.ts
+language: typescript
+lines: 180
+last_analyzed_at: '2025-06-01T10:35:00+00:00'
+analyzed_by: analyzer-v1
+human_verified: true
+verified_by: developer
+verified_at: '2026-06-16T08:06:37.406158'
+responsibility:
+  summary: 支付领域服务——处理支付创建、支付确认、退款流程
+  detail: 'PaymentService 负责处理所有支付相关的业务逻辑：
+
+    1. 创建支付记录并对接第三方支付网关
+
+    2. 异步接收支付结果回调
+
+    3. 处理退款请求
+
+    4. 与 OrderService 联动完成订单支付确认
+
+    '
+interfaces:
+- name: createPayment
+  signature: 'async createPayment(orderId: string, amount: number, method: PaymentMethod): Promise<Payment>'
+  access: public
+  side_effects:
+  - 创建支付记录
+  - 调用第三方支付网关
+  callers:
+  - node_id: order-service
+    file: src/order/order.service.ts
+  preconditions:
+  - 订单存在
+  - 金额大于0
+  complexity: high
+- name: handlePaymentCallback
+  signature: 'async handlePaymentCallback(paymentId: string, result: PaymentCallbackDTO): Promise<void>'
+  access: public
+  side_effects:
+  - 更新支付状态
+  - 回调订单服务确认支付
+  callers:
+  - node_id: api-payment-controller
+    file: src/api/payment.controller.ts
+  preconditions:
+  - 支付记录存在
+  complexity: high
+- name: refund
+  signature: 'async refund(paymentId: string, reason: string): Promise<RefundResult>'
+  access: public
+  side_effects:
+  - 创建退款记录
+  - 调用第三方退款接口
+  - 通知订单服务
+  callers:
+  - node_id: api-payment-controller
+    file: src/api/payment.controller.ts
+  preconditions:
+  - 支付已完成
+  - 退款金额不超过支付金额
+  complexity: medium
+key_types:
+- name: PaymentMethod
+  definition_in: src/shared/types.ts
+  fields:
+  - alipay
+  - wechat
+  - credit_card
+  - bank_transfer
+- name: PaymentStatus
+  definition_in: src/shared/types.ts
+  fields:
+  - pending
+  - processing
+  - success
+  - failed
+  - refunded
+- name: Payment
+  definition_in: src/payment/entities/payment.entity.ts
+  fields:
+  - id
+  - orderId
+  - amount
+  - method
+  - status
+  - createdAt
+dependencies:
+- node_id: order-service
+  interface_file: src/order/order.service.ts
+  used_for: 确认支付结果回传订单服务
+  required: true
+- node_id: shared-types
+  interface_file: src/shared/types.ts
+  used_for: 共享类型定义
+  required: true
+- node_id: notification-service
+  interface_file: src/notification/notification.service.ts
+  used_for: 发送支付状态通知
+  required: false
+decisions: []
+risks:
+- id: RISK-003
+  level: high
+  title: 第三方支付接口不稳定
+  description: 依赖支付宝/微信支付接口，可能因网络或服务端问题导致支付失败
+  mitigation: 重试机制 + 补偿查询 + 人工介入流程
+  status: mitigated
+testing:
+  coverage_percent: 85.0
+  test_files:
+  - src/payment/payment.service.spec.ts
+  - src/payment/payment.controller.spec.ts
+  uncovered_cases:
+  - 并发退款请求的幂等性

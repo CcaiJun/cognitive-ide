@@ -1,0 +1,150 @@
+node_id: "order-service"
+file_path: "src/order/order.service.ts"
+language: "typescript"
+lines: 245
+last_analyzed_at: "2025-06-01T10:30:00Z"
+analyzed_by: "analyzer-v1"
+human_verified: false
+verified_by: null
+verified_at: null
+
+responsibility:
+  summary: "订单核心领域服务——处理订单创建、状态流转、支付对接、库存联动与通知分发"
+  detail: |
+    OrderService 是整个电商系统的核心领域服务，负责：
+    1. 创建订单并验证商品可用性
+    2. 管理订单状态机：pending → confirmed → paid → shipped → completed / cancelled
+    3. 与 PaymentService 对接完成支付流程
+    4. 与 InventoryService 联动锁定/释放库存
+    5. 通过 NotificationService 发送订单状态变更通知
+
+interfaces:
+  - name: "createOrder"
+    signature: "async createOrder(userId: string, items: OrderItemDTO[]): Promise<Order>"
+    access: "public"
+    side_effects: ["创建订单记录", "锁定库存", "发送订单创建通知"]
+    callers:
+      - node_id: "api-order-controller"
+        file: "src/api/order.controller.ts"
+    preconditions: ["用户已认证", "商品库存充足"]
+    complexity: "high"
+
+  - name: "cancelOrder"
+    signature: "async cancelOrder(orderId: string, reason: string): Promise<void>"
+    access: "public"
+    side_effects: ["更新订单状态", "释放库存", "发送取消通知"]
+    callers:
+      - node_id: "api-order-controller"
+        file: "src/api/order.controller.ts"
+    preconditions: ["订单存在", "订单状态允许取消"]
+    complexity: "medium"
+
+  - name: "getOrderStatus"
+    signature: "async getOrderStatus(orderId: string): Promise<OrderStatus>"
+    access: "public"
+    side_effects: []
+    callers:
+      - node_id: "api-order-controller"
+        file: "src/api/order.controller.ts"
+      - node_id: "notification-service"
+        file: "src/notification/notification.service.ts"
+    preconditions: ["订单存在"]
+    complexity: "low"
+
+  - name: "confirmPayment"
+    signature: "async confirmPayment(orderId: string, paymentResult: PaymentResult): Promise<void>"
+    access: "public"
+    side_effects: ["更新订单状态为已支付", "触发库存确认", "发送支付成功通知"]
+    callers:
+      - node_id: "payment-service"
+        file: "src/payment/payment.service.ts"
+    preconditions: ["订单存在", "支付结果有效"]
+    complexity: "high"
+
+key_types:
+  - name: "OrderStatus"
+    definition_in: "src/shared/types.ts"
+    fields: ["pending", "confirmed", "paid", "shipped", "completed", "cancelled"]
+  - name: "OrderItemDTO"
+    definition_in: "src/order/dto/order-item.dto.ts"
+    fields: ["productId", "quantity", "unitPrice"]
+  - name: "Order"
+    definition_in: "src/order/entities/order.entity.ts"
+    fields: ["id", "userId", "items", "totalAmount", "status", "createdAt", "updatedAt"]
+
+dependencies:
+  - node_id: "payment-service"
+    interface_file: "src/payment/payment.service.ts"
+    used_for: "处理订单支付流程"
+    required: true
+  - node_id: "inventory-service"
+    interface_file: "src/inventory/inventory.service.ts"
+    used_for: "锁定和释放商品库存"
+    required: true
+  - node_id: "notification-service"
+    interface_file: "src/notification/notification.service.ts"
+    used_for: "发送订单状态变更通知"
+    required: false
+  - node_id: "shared-types"
+    interface_file: "src/shared/types.ts"
+    used_for: "共享类型定义(OrderStatus, OrderItemDTO等)"
+    required: true
+  - node_id: "user-service"
+    interface_file: "src/user/user.service.ts"
+    used_for: "验证用户信息和获取配送地址"
+    required: true
+
+data_flow:
+  description: "订单创建主流程"
+  steps:
+    - action: "接收创建订单请求"
+      input: "userId + OrderItemDTO[]"
+      calls: "createOrder"
+    - action: "验证商品库存"
+      calls: "inventory-service.checkStock"
+      output: "库存确认结果"
+    - action: "创建订单记录"
+      writes_to: "orders数据库表"
+      output: "Order实体"
+    - action: "锁定库存"
+      calls: "inventory-service.lockStock"
+    - action: "发送订单创建通知"
+      calls: "notification-service.sendOrderCreated"
+      publishes: "order.created"
+
+decisions:
+  - id: "DEC-001"
+    title: "使用领域事件代替直接调用通知服务"
+    context: "订单状态变更需要触发多种通知（邮件、短信、推送）"
+    decision: "通过领域事件机制异步发送通知，降低订单服务与通知服务的耦合"
+    consequences: "通知发送失败不会阻塞订单流程，但需要处理最终一致性"
+    linked_issue: null
+
+risks:
+  - id: "RISK-001"
+    level: "high"
+    title: "分布式事务一致性"
+    description: "订单创建涉及库存锁定和支付，跨服务事务可能出现不一致"
+    mitigation: "使用 Saga 模式 + 补偿事务"
+    status: "open"
+  - id: "RISK-002"
+    level: "medium"
+    title: "高并发下单库存超卖"
+    description: "高峰期多个用户同时下单可能导致库存超卖"
+    mitigation: "Redis 分布式锁 + 数据库乐观锁双重保护"
+    status: "open"
+
+testing:
+  coverage_percent: 78.5
+  test_files:
+    - "src/order/order.service.spec.ts"
+    - "src/order/order.controller.spec.ts"
+    - "src/order/order.e2e-spec.ts"
+  uncovered_cases:
+    - "支付超时后的订单状态恢复"
+    - "库存锁定失败后的完整回滚路径"
+
+performance:
+  average_latency_ms: 45.2
+  p99_latency_ms: 320
+  bottleneck: "库存锁定操作（跨服务RPC）"

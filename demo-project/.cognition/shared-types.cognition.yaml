@@ -1,0 +1,101 @@
+node_id: "shared-types"
+file_path: "src/shared/types.ts"
+language: "typescript"
+lines: 95
+last_analyzed_at: "2025-06-01T10:30:00Z"
+analyzed_by: "analyzer-v1"
+human_verified: true
+verified_by: "tech-lead"
+verified_at: "2025-06-01T16:00:00Z"
+
+responsibility:
+  summary: "共享类型定义模块——全局跨服务共用的TypeScript接口、枚举与DTO"
+  detail: |
+    shared-types 是所有领域服务的类型基础设施，提供：
+    1. 订单相关类型 (OrderStatus, OrderItemDTO)
+    2. 支付相关类型 (PaymentResult, PaymentStatus)
+    3. 库存相关类型 (StockResult, LockResult)
+    4. 通知相关类型 (NotificationEvent, SendResult)
+    5. 用户相关类型 (UserRole, UserDTO)
+    6. 通用工具类型 (PaginatedResult, ApiError)
+
+interfaces:
+  - name: "OrderStatus"
+    signature: "enum OrderStatus { pending, confirmed, paid, shipped, completed, cancelled }"
+    access: "public"
+    side_effects: []
+    callers:
+      - node_id: "order-service"
+        file: "src/order/order.service.ts"
+      - node_id: "payment-service"
+        file: "src/payment/payment.service.ts"
+    preconditions: []
+    complexity: "low"
+
+  - name: "PaymentResult"
+    signature: "interface PaymentResult { success: boolean; transactionId?: string; error?: string }"
+    access: "public"
+    side_effects: []
+    callers:
+      - node_id: "payment-service"
+        file: "src/payment/payment.service.ts"
+      - node_id: "order-service"
+        file: "src/order/order.service.ts"
+    preconditions: []
+    complexity: "low"
+
+  - name: "NotificationEvent"
+    signature: "interface NotificationEvent { type: NotificationType; userId: string; payload: Record<string, any>; priority: 'high' | 'medium' | 'low' }"
+    access: "public"
+    side_effects: []
+    callers:
+      - node_id: "notification-service"
+        file: "src/notification/notification.service.ts"
+    preconditions: []
+    complexity: "low"
+
+key_types:
+  - name: "UserRole"
+    definition_in: "src/shared/types.ts"
+    fields: ["admin", "user", "guest"]
+  - name: "PaginatedResult"
+    definition_in: "src/shared/types.ts"
+    fields: ["items", "total", "page", "pageSize"]
+  - name: "ApiError"
+    definition_in: "src/shared/types.ts"
+    fields: ["code", "message", "details"]
+
+dependencies: []
+
+data_flow:
+  description: "类型导出——无运行时数据流"
+  steps:
+    - action: "TypeScript编译期类型检查"
+      input: "各领域服务引用"
+
+decisions:
+  - id: "DEC-SHARED-001"
+    title: "使用独立NPM包管理共享类型"
+    context: "多服务共享类型定义需要统一版本管理"
+    decision: "抽取为独立 @cognitive-ide/shared-types NPM包"
+    consequences: "版本变更需协调各服务升级，但类型一致性有保障"
+    linked_issue: null
+
+risks:
+  - id: "RISK-SHARED-001"
+    level: "low"
+    title: "类型定义变更影响面广"
+    description: "共享类型的任何breaking change会影响所有依赖服务"
+    mitigation: "严格遵循semver版本规范，breaking change需团队review"
+    status: "accepted"
+
+testing:
+  coverage_percent: 100.0
+  test_files:
+    - "src/shared/types.spec.ts"
+  uncovered_cases: []
+
+performance:
+  average_latency_ms: 0
+  p99_latency_ms: 0
+  bottleneck: "无(编译期类型)"

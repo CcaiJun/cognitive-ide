@@ -1,0 +1,113 @@
+node_id: "user-service"
+file_path: "src/user/user.service.ts"
+language: "typescript"
+lines: 150
+last_analyzed_at: "2025-06-01T10:30:00Z"
+analyzed_by: "analyzer-v1"
+human_verified: false
+verified_by: null
+verified_at: null
+
+responsibility:
+  summary: "用户领域服务——处理用户注册、认证、权限管理与偏好设置"
+  detail: |
+    UserService 负责用户全生命周期管理：
+    1. 用户注册与资料维护
+    2. 身份认证与JWT令牌签发
+    3. 角色权限校验
+    4. 用户通知偏好设置
+    5. 用户行为统计
+
+interfaces:
+  - name: "authenticate"
+    signature: "async authenticate(email: string, password: string): Promise<AuthResult>"
+    access: "public"
+    side_effects: ["签发JWT令牌", "记录登录日志"]
+    callers:
+      - node_id: "api-auth-controller"
+        file: "src/api/auth.controller.ts"
+    preconditions: ["用户已注册", "凭证有效"]
+    complexity: "medium"
+
+  - name: "getUserProfile"
+    signature: "async getUserProfile(userId: string): Promise<UserDTO>"
+    access: "public"
+    side_effects: []
+    callers:
+      - node_id: "order-service"
+        file: "src/order/order.service.ts"
+    preconditions: ["用户ID有效"]
+    complexity: "low"
+
+  - name: "updatePreferences"
+    signature: "async updatePreferences(userId: string, prefs: NotificationPreferences): Promise<void>"
+    access: "public"
+    side_effects: ["更新用户偏好记录"]
+    callers: []
+    preconditions: ["用户存在"]
+    complexity: "low"
+
+key_types:
+  - name: "UserDTO"
+    definition_in: "src/shared/types.ts"
+    fields: ["id", "email", "name", "role", "preferences"]
+  - name: "AuthResult"
+    definition_in: "src/user/types.ts"
+    fields: ["token", "expiresAt", "role"]
+  - name: "NotificationPreferences"
+    definition_in: "src/user/types.ts"
+    fields: ["email", "sms", "push", "channels"]
+
+dependencies:
+  - node_id: "shared-types"
+    interface_file: "src/shared/types.ts"
+    used_for: "共享类型定义(UserRole, UserDTO等)"
+    required: true
+
+data_flow:
+  description: "用户认证主流程"
+  steps:
+    - action: "接收认证请求"
+      input: "email + password"
+      calls: "authenticate"
+    - action: "校验凭证"
+      reads_from: "users数据库表"
+    - action: "签发JWT令牌"
+      output: "AuthResult(token, expiresAt, role)"
+    - action: "记录登录日志"
+      writes_to: "auth_log数据库表"
+
+decisions:
+  - id: "DEC-USER-001"
+    title: "JWT短期令牌+Refresh Token方案"
+    context: "需要在安全性和用户体验之间平衡"
+    decision: "Access Token有效期15分钟，Refresh Token有效期7天"
+    consequences: "用户需要偶尔刷新令牌，但安全性显著提升"
+    linked_issue: null
+
+risks:
+  - id: "RISK-USER-001"
+    level: "high"
+    title: "JWT密钥泄露风险"
+    description: "JWT签名密钥一旦泄露，攻击者可伪造任意用户令牌"
+    mitigation: "密钥存储在环境变量中，定期轮换，密钥分离(签名+验证)"
+    status: "open"
+  - id: "RISK-USER-002"
+    level: "medium"
+    title: "暴力破解风险"
+    description: "登录接口可能遭受暴力破解攻击"
+    mitigation: "实现速率限制(5次/分钟/IP)和账户锁定机制"
+    status: "mitigated"
+
+testing:
+  coverage_percent: 88.0
+  test_files:
+    - "src/user/user.service.spec.ts"
+    - "src/user/auth.e2e-spec.ts"
+  uncovered_cases:
+    - "Refresh Token过期后的完整刷新流程"
+
+performance:
+  average_latency_ms: 15.0
+  p99_latency_ms: 80
+  bottleneck: "数据库用户查询索引"

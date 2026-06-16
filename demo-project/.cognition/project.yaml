@@ -1,0 +1,14 @@
+cognition_version: '1.0'
+project_id: 6014f0d4
+name: demo-project
+description: ''
+language: unknown
+framework: ''
+generation:
+  auto_analyze: true
+  ai_model: gpt-4o
+  human_review_required:
+  - interface_change
+  - new_dependency
+  - risk_level:high
+modules: []
