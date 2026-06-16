@@ -78,6 +78,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         unverifiedChanges: response.unverified_changes,
         isLoading: false,
       });
+      // Persist project path to localStorage for page refresh recovery
+      try { localStorage.setItem('cognitive-ide-project-path', path); } catch {}
     } catch (e: any) {
       set({ isLoading: false, error: e.message || 'Failed to load project' });
     }

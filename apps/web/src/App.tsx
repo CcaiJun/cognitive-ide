@@ -29,7 +29,15 @@ const App: React.FC = () => {
 
   // Show workspace selector on first load if no project loaded
   useEffect(() => {
-    if (!currentProject) {
+    const savedPath = localStorage.getItem('cognitive-ide-project-path');
+    if (savedPath) {
+      // Auto-restore project from saved path
+      loadProject(savedPath).catch(() => {
+        // Saved path failed (deleted/renamed), clear and show selector
+        localStorage.removeItem('cognitive-ide-project-path');
+        setShowWorkspace(true);
+      });
+    } else if (!currentProject) {
       setShowWorkspace(true);
     }
   }, []);
